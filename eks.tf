@@ -72,7 +72,7 @@ module "eks" {
       desired_size = 3
 
       force_update_version = true
-      instance_types       = ["m5.xlarge"]
+      instance_types       = ["t3.small"]
       ami_type             = "AL2_x86_64"
       capacity_type        = "ON_DEMAND"
 

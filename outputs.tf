@@ -7,3 +7,13 @@ output "mwaa_webserver_url" {
   description = "MWAA Webserver Url"
   value       = module.mwaa.mwaa_webserver_url
 }
+
+output "postgres_endpoint" {
+  description = "Public DNS name of database instance"
+  value       = aws_db_instance.postgres.address
+}
+
+output "s3_bucket_id" {
+  description = "The ID of the S3 bucket"
+  value       = module.s3_bucket.s3_bucket_id
+}
