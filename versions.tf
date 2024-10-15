@@ -18,6 +18,14 @@ terraform {
       source  = "hashicorp/random"
       version = ">= 3.0"
     }
+    airbyte = {
+      source  = "airbytehq/airbyte"
+      version = "0.6.5"
+    }
+    postgresql = {
+      source  = "cyrilgdn/postgresql"
+      version = "~> 1.15.0"
+    }
   }
 
   # ##  Used for end-to-end testing on project; update to suit your needs

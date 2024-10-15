@@ -65,14 +65,14 @@ module "eks" {
     #  You can also make uses on nodeSelector and Taints/tolerations to spread workloads on MNG or Karpenter provisioners
     core_node_group = {
       name       = "core-node-group"
-      subnet_ids = module.vpc.private_subnets
+      subnet_ids = concat(module.vpc.private_subnets, module.vpc.public_subnets)
 
       max_size     = 9
       min_size     = 3
       desired_size = 3
 
       force_update_version = true
-      instance_types       = ["t3.small"]
+      instance_types       = ["t3.medium"]
       ami_type             = "AL2_x86_64"
       capacity_type        = "ON_DEMAND"
 

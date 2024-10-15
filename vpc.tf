@@ -17,6 +17,7 @@ module "vpc" {
 
   enable_nat_gateway = true
   single_nat_gateway = true
+  map_public_ip_on_launch = true
 
   # Manage so we can name
   manage_default_network_acl    = true
@@ -29,6 +30,7 @@ module "vpc" {
   public_subnet_tags = {
     "kubernetes.io/cluster/${local.name}" = "shared"
     "kubernetes.io/role/elb"              = 1
+    "kubernetes.io/role/alb-ingress"      = 1
   }
 
   private_subnet_tags = {

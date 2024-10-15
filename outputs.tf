@@ -17,3 +17,7 @@ output "s3_bucket_id" {
   description = "The ID of the S3 bucket"
   value       = module.s3_bucket.s3_bucket_id
 }
+
+output "airbyte_webapp_url" {
+  value = "http://${data.kubernetes_service.airbyte_webapp.status[0].load_balancer[0].ingress[0].hostname}"
+}

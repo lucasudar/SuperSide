@@ -6,12 +6,12 @@ module "mwaa" {
   source  = "aws-ia/mwaa/aws"
   version = "0.0.4"
 
-  depends_on = [aws_s3_object.uploads, module.vpc_endpoints]
+  depends_on = [aws_s3_object.uploads, module.vpc_endpoints, aws_s3_bucket_policy.mwaa_bucket_policy]
 
   name                  = local.name
   airflow_version       = "2.5.1"
-  environment_class     = "mw1.medium"  # mw1.small / mw1.medium / mw1.large
-  webserver_access_mode = "PUBLIC_ONLY" # Default PRIVATE_ONLY for production environments
+  environment_class     = "mw1.medium"
+  webserver_access_mode = "PUBLIC_ONLY"
 
   create_s3_bucket  = false
   source_bucket_arn = module.s3_bucket.s3_bucket_arn
@@ -23,8 +23,8 @@ module "mwaa" {
   max_workers = 25
 
   vpc_id             = module.vpc.vpc_id
-  private_subnet_ids = slice(module.vpc.private_subnets, 0, 2) # Required 2 subnets only
-  source_cidr        = [module.vpc.vpc_cidr_block]             # Add your IP here to access Airflow UI
+  private_subnet_ids = slice(module.vpc.private_subnets, 0, 2)
+  source_cidr        = [module.vpc.vpc_cidr_block]
 
   airflow_configuration_options = {
     "core.load_default_connections" = "false"
@@ -75,7 +75,6 @@ module "s3_bucket" {
 
   bucket = "mwaa-${random_id.this.hex}"
 
-  # For example only - please evaluate for your environment
   force_destroy = true
 
   attach_deny_insecure_transport_policy = true
@@ -94,8 +93,40 @@ module "s3_bucket" {
     }
   }
 
+  versioning = {
+    enabled = true
+  }
+
   tags = local.tags
 }
+
+resource "aws_s3_bucket_policy" "mwaa_bucket_policy" {
+  bucket = module.s3_bucket.s3_bucket_id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowMWAAAccess"
+        Effect = "Allow"
+        Principal = {
+          Service = "airflow.amazonaws.com"
+        }
+        Action = [
+          "s3:GetBucket*",
+          "s3:ListBucket*",
+          "s3:GetObject*",
+          "s3:PutObject*"
+        ]
+        Resource = [
+          module.s3_bucket.s3_bucket_arn,
+          "${module.s3_bucket.s3_bucket_arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
 
 # Kubeconfig is required for KubernetesPodOperator
 # https://airflow.apache.org/docs/apache-airflow-providers-cncf-kubernetes/stable/operators.html

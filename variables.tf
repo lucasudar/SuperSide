@@ -1,7 +1,7 @@
 variable "name" {
   description = "Name of the VPC and EKS Cluster"
   type        = string
-  default     = "managed-airflow-mwaa"
+  default     = "superside"
 }
 
 variable "region" {
