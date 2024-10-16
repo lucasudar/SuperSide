@@ -1,0 +1,12 @@
+superside:
+  outputs:
+    dev:
+      dbname: postgres
+      host: superside-postgres.ct8ig0syu1w0.us-west-2.rds.amazonaws.com
+      pass: postgres
+      port: 5432
+      schema: stg
+      threads: 1
+      type: postgres
+      user: postgres
+  target: dev
