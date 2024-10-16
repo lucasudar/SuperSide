@@ -122,9 +122,28 @@ resource "aws_s3_bucket_policy" "mwaa_bucket_policy" {
           module.s3_bucket.s3_bucket_arn,
           "${module.s3_bucket.s3_bucket_arn}/*"
         ]
+      },
+      {
+        Sid    = "AllowAirbyteAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = aws_iam_user.airbyte_user.arn
+        }
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          module.s3_bucket.s3_bucket_arn,
+          "${module.s3_bucket.s3_bucket_arn}/*"
+        ]
       }
     ]
   })
+  depends_on = [
+    aws_iam_user.airbyte_user,
+    module.s3_bucket
+  ]
 }
 
 

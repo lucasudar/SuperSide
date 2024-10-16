@@ -20,12 +20,16 @@ terraform {
     }
     airbyte = {
       source  = "airbytehq/airbyte"
-      version = "0.6.5"
+      version = "0.6.4"
     }
     postgresql = {
       source  = "cyrilgdn/postgresql"
       version = "~> 1.15.0"
     }
+    # snowflake = {
+    #   source = "Snowflake-Labs/snowflake"
+    #   version = "0.97.0"
+    # }
   }
 
   # ##  Used for end-to-end testing on project; update to suit your needs

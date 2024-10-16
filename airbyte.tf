@@ -8,7 +8,13 @@ resource "helm_release" "airbyte" {
   name       = "airbyte"
   repository = "https://airbytehq.github.io/helm-charts"
   chart      = "airbyte"
+  version    = "1.1.0"
   namespace  = kubernetes_namespace.airbyte.metadata[0].name
+
+  set {
+    name  = "webapp.service.type"
+    value = "LoadBalancer"
+  }
 }
 
 resource "aws_security_group" "airbyte_public_sg" {
@@ -32,14 +38,6 @@ resource "aws_security_group" "airbyte_public_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
-    description = "Airbyte API"
-    from_port   = 8001
-    to_port     = 8001
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -58,79 +56,106 @@ data "kubernetes_service" "airbyte_webapp" {
   depends_on = [helm_release.airbyte]
 }
 
-locals {
-  airbyte_webapp_host = try(data.kubernetes_service.airbyte_webapp.status[0].load_balancer[0].ingress[0].hostname, "pending")
+data "kubernetes_service" "airbyte_server" {
+  metadata {
+    name      = "airbyte-airbyte-server-svc"
+    namespace = kubernetes_namespace.airbyte.metadata[0].name
+  }
+  depends_on = [helm_release.airbyte]
 }
 
-# provider "airbyte" {
-#   username   = "airbyte"
-#   password   = "password"
-#   server_url = "http://localhost:8000/api/public/v1/"
-# }
+locals {
+  airbyte_webapp_host = try(
+    data.kubernetes_service.airbyte_webapp.status[0].load_balancer[0].ingress[0].hostname,
+    data.kubernetes_service.airbyte_webapp.status[0].load_balancer[0].ingress[0].ip,
+    "pending"
+  )
+  airbyte_server_host = data.kubernetes_service.airbyte_server.spec[0].cluster_ip
+}
 
-# resource "airbyte_workspace" "solution_team_workspace" {
-#   name = "Solution Team Workspace"
-# }
+output "airbyte_webapp_url" {
+  value = "http://${local.airbyte_webapp_host}"
+}
+
+provider "airbyte" {
+  username   = "airbyte"
+  password   = "password"
+  server_url = "http://127.0.0.1:8001/api/public/v1/"
+}
+
+resource "airbyte_workspace" "solution_team_workspace" {
+  name = "Default Workspace"
+}
+
 
 // Airbyte Terraform provider documentation: https://registry.terraform.io/providers/airbytehq/airbyte/latest/docs
 
 # 1st
 
-# resource "airbyte_source_s3" "s3" {
-#   configuration = {
-#     source_type  = "s3"
-#     bucket       = module.s3_bucket.s3_bucket_id
-#     endpoint     = "https://s3.amazonaws.com"
-#     path_pattern = "**"
-#     format = {
-#       csv = {
-#         delimiter   = ","
-#         quote_char  = "\""
-#         escape_char = "\\"
-#         null_values = ["null"]
-#         skip_header = true
-#       }
-#     }
-#     provider = {
-#       bucket      = module.s3_bucket.s3_bucket_id
-#       endpoint    = "https://s3.amazonaws.com"
-#       path_prefix = local.source_files_s3_path
-#       region_name = module.s3_bucket.s3_bucket_region
-#       start_date  = "2021-01-01T00:00:00Z"
-#     }
-#     streams = [
-#       {
-#         name      = "my_stream"
-#         file_type = "csv"
-#         format = {
-#           csv_format = {
-#             filetype = "csv"
-#           }
-#         }
-#       },
-#     ]
-#   }
-#   name         = "s3-csv-source"
-#   workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
-# }
+resource "airbyte_source_s3" "s3" {
+  configuration = {
+    aws_access_key_id     = aws_iam_access_key.airbyte_user.id
+    aws_secret_access_key = aws_iam_access_key.airbyte_user.secret
+    bucket                = module.s3_bucket.s3_bucket_id
+    region_name           = module.s3_bucket.s3_bucket_region
+    path_pattern          = "**"
+    streams = [
+      {
+        days_to_sync_if_history_is_full = 6
+        format = {
+          csv_format = {
+            double_as_string = true
+          }
+        }
+        globs = [
+          "**/*.csv",
+        ]
+        name                                        = "csv_stream"
+        recent_n_files_to_read_for_schema_discovery = 1
+        schemaless                                  = true
+        validation_policy                           = "Emit Record"
+      },
+    ]
+  }
+  name         = "s3_bucket"
+  workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
 
-# resource "airbyte_destination_postgres" "postgres" {
-#   name         = "PostgreSQL Destination"
-#   workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
-#   configuration = {
-#     database = "postgres"
-#     host     = aws_db_instance.postgres.address
-#     port     = aws_db_instance.postgres.port
-#     username = aws_db_instance.postgres.username
-#     password = aws_db_instance.postgres.password
-#   }
-# }
+  depends_on = [
+    aws_iam_user_policy_attachment.airbyte_policy_attach,
+    aws_s3_bucket_policy.mwaa_bucket_policy
+  ]
+}
 
-# resource "airbyte_connection" "s3_to_postgres" {
-#   name           = "S3 to Postgres"
-#   source_id      = airbyte_source_s3.s3.source_id
-#   destination_id = airbyte_destination_postgres.postgres.destination_id
-# }
+resource "airbyte_destination_postgres" "postgres" {
+  name         = "PostgreSQL"
+  workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
+  configuration = {
+    database = "postgres"
+    host     = aws_db_instance.postgres.address
+    port     = aws_db_instance.postgres.port
+    username = aws_db_instance.postgres.username
+    password = aws_db_instance.postgres.password
+  }
+}
+
+resource "airbyte_connection" "s3_to_postgres" {
+  name           = "S3_to_Postgres"
+  source_id      = airbyte_source_s3.s3.source_id
+  destination_id = airbyte_destination_postgres.postgres.destination_id
+  configurations = {
+    streams = [
+      {
+        name        = "csv_stream" # Имя потока данных
+        sync_mode   = "full_refresh_overwrite"
+        primary_key = [["Customer ID"]] # Первичный ключ
+      }
+    ]
+  }
+  schedule = {
+    schedule_type = "manual"
+  }
+  status = "active"
+}
 
 # 2nd
 
@@ -206,3 +231,47 @@ locals {
 #     ]
 #   }
 # }
+
+
+resource "aws_iam_user" "airbyte_user" {
+  name = "airbyte-s3-user"
+}
+
+resource "aws_iam_access_key" "airbyte_user" {
+  user = aws_iam_user.airbyte_user.name
+  depends_on = [
+    aws_iam_user.airbyte_user
+  ]
+}
+
+resource "aws_iam_policy" "airbyte_s3_policy" {
+  name        = "airbyte-s3-access-policy"
+  path        = "/"
+  description = "IAM policy for Airbyte S3 access"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          module.s3_bucket.s3_bucket_arn,
+          "${module.s3_bucket.s3_bucket_arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_user_policy_attachment" "airbyte_policy_attach" {
+  user       = aws_iam_user.airbyte_user.name
+  policy_arn = aws_iam_policy.airbyte_s3_policy.arn
+  depends_on = [
+    aws_iam_user.airbyte_user,
+    aws_iam_policy.airbyte_s3_policy
+  ]
+}
