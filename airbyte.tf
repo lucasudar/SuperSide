@@ -187,7 +187,7 @@ resource "airbyte_source_s3" "s3" {
         ]
         name                                        = "csv_stream"
         recent_n_files_to_read_for_schema_discovery = 1
-        schemaless                                  = true
+        schemaless                                  = false
         validation_policy                           = "Emit Record"
       },
     ]
