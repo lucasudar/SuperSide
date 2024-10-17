@@ -192,7 +192,7 @@ resource "airbyte_source_s3" "s3_with_source" {
       },
     ]
   }
-  name         = "S3_bucket_with_ROW_DATA"
+  name         = "S3_bucket_with_RAW_DATA"
   workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
 
   depends_on = [
@@ -202,7 +202,7 @@ resource "airbyte_source_s3" "s3_with_source" {
 }
 
 resource "airbyte_destination_postgres" "postgres_for_source" {
-  name         = "PostgreSQL_with_ROW_DATA"
+  name         = "PostgreSQL_with_RAW_DATA"
   workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
   configuration = {
     database = "postgres"
@@ -214,7 +214,7 @@ resource "airbyte_destination_postgres" "postgres_for_source" {
 }
 
 resource "airbyte_connection" "s3_to_postgres" {
-  name           = "(STEP_2)_S3_to_Postgres_with_ROW_DATA"
+  name           = "(STEP_2)_S3_to_Postgres_with_RAW_DATA"
   source_id      = airbyte_source_s3.s3_with_source.source_id
   destination_id = airbyte_destination_postgres.postgres_for_source.destination_id
   configurations = {
@@ -327,7 +327,7 @@ resource "airbyte_source_postgres" "postgres" {
       detect_changes_with_xmin_system_column = {}
     }
   }
-  name         = "Postgres_with_ROW_DATA"
+  name         = "Postgres_with_RAW_DATA"
   workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
 }
 
@@ -347,12 +347,12 @@ resource "airbyte_destination_snowflake" "snowflake" {
     username         = "lucasudar"
     warehouse        = "COMPUTE_WH"
   }
-  name         = "Snowflake_with_ROW_DATA"
+  name         = "Snowflake_with_RAW_DATA"
   workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
 }
 
 resource "airbyte_connection" "postgres_to_snowflake" {
-  name           = "(STEP_3)_Postgres_to_Snowflake_with_ROW_DATA"
+  name           = "(STEP_3)_Postgres_to_Snowflake_with_RAW_DATA"
   source_id      = airbyte_source_postgres.postgres.source_id
   destination_id = airbyte_destination_snowflake.snowflake.destination_id
   configurations = {
