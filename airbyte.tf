@@ -167,7 +167,7 @@ resource "airbyte_workspace" "solution_team_workspace" {
 
 # 1st batch
 
-resource "airbyte_source_s3" "s3" {
+resource "airbyte_source_s3" "s3_with_source" {
   configuration = {
     aws_access_key_id     = aws_iam_access_key.airbyte_user.id
     aws_secret_access_key = aws_iam_access_key.airbyte_user.secret
@@ -185,14 +185,14 @@ resource "airbyte_source_s3" "s3" {
         globs = [
           "${local.source_files_s3_path}/*.csv",
         ]
-        name                                        = "csv_stream"
+        name                                        = "csv_source"
         recent_n_files_to_read_for_schema_discovery = 1
         schemaless                                  = false
         validation_policy                           = "Emit Record"
       },
     ]
   }
-  name         = "s3_bucket_with_source"
+  name         = "S3_bucket_with_ROW_DATA"
   workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
 
   depends_on = [
@@ -201,8 +201,8 @@ resource "airbyte_source_s3" "s3" {
   ]
 }
 
-resource "airbyte_destination_postgres" "postgres" {
-  name         = "PostgreSQL"
+resource "airbyte_destination_postgres" "postgres_for_source" {
+  name         = "PostgreSQL_with_ROW_DATA"
   workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
   configuration = {
     database = "postgres"
@@ -214,13 +214,13 @@ resource "airbyte_destination_postgres" "postgres" {
 }
 
 resource "airbyte_connection" "s3_to_postgres" {
-  name           = "S3_to_Postgres"
-  source_id      = airbyte_source_s3.s3.source_id
-  destination_id = airbyte_destination_postgres.postgres.destination_id
+  name           = "(STEP_2)_S3_to_Postgres_with_ROW_DATA"
+  source_id      = airbyte_source_s3.s3_with_source.source_id
+  destination_id = airbyte_destination_postgres.postgres_for_source.destination_id
   configurations = {
     streams = [
       {
-        name        = "csv_stream"
+        name        = "csv_source"
         sync_mode   = "full_refresh_overwrite"
         primary_key = [["Customer ID"]]
       }
@@ -232,7 +232,7 @@ resource "airbyte_connection" "s3_to_postgres" {
   status = "active"
 }
 
-# # 2nd batch 
+# 2nd batch 
 
 resource "airbyte_source_s3" "s3_with_dim" {
   configuration = {
@@ -259,7 +259,7 @@ resource "airbyte_source_s3" "s3_with_dim" {
       },
     ]
   }
-  name         = "s3_bucket_with_dim"
+  name         = "S3_bucket_with_DIM_PROJECT"
   workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
 
   depends_on = [
@@ -268,7 +268,7 @@ resource "airbyte_source_s3" "s3_with_dim" {
   ]
 }
 
-resource "airbyte_destination_snowflake" "snowflake" {
+resource "airbyte_destination_snowflake" "snowflake_for_dim" {
   configuration = {
     credentials = {
       username_and_password = {
@@ -284,20 +284,83 @@ resource "airbyte_destination_snowflake" "snowflake" {
     username         = "lucasudar"
     warehouse        = "COMPUTE_WH"
   }
-  name         = "Snowflake"
+  name         = "Snowflake_with_DIM_PROJECT"
   workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
 }
 
 resource "airbyte_connection" "s3_to_snowflake" {
-  name           = "S3_to_Snowflake"
+  name           = "(STEP_1)_S3_to_Snowflake_with_DIM_PROJECT"
   source_id      = airbyte_source_s3.s3_with_dim.source_id
-  destination_id = airbyte_destination_snowflake.snowflake.destination_id
+  destination_id = airbyte_destination_snowflake.snowflake_for_dim.destination_id
   configurations = {
     streams = [
       {
         name        = "DIM_PROJECT"
         sync_mode   = "full_refresh_overwrite"
         primary_key = [["ID"]]
+      }
+    ]
+  }
+  schedule = {
+    schedule_type = "manual"
+  }
+  status = "active"
+}
+
+# 3rd batch
+
+resource "airbyte_source_postgres" "postgres" {
+  configuration = {
+    database    = "postgres"
+    host        = aws_db_instance.postgres.address
+    port        = aws_db_instance.postgres.port
+    username    = aws_db_instance.postgres.username
+    password    = aws_db_instance.postgres.password
+    source_type = "postgres"
+    schemas = [
+      "public"
+    ]
+    ssl_mode = {
+      allow = {}
+    }
+    replication_method = {
+      detect_changes_with_xmin_system_column = {}
+    }
+  }
+  name         = "Postgres_with_ROW_DATA"
+  workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
+}
+
+resource "airbyte_destination_snowflake" "snowflake" {
+  configuration = {
+    credentials = {
+      username_and_password = {
+        password = "hRjRTs^4!J7GE2!"
+      }
+    }
+    database         = "superside"
+    destination_type = "snowflake"
+    host             = "czb09219.us-east-1.snowflakecomputing.com"
+    raw_data_schema  = "RAW_DATA"
+    role             = "ACCOUNTADMIN"
+    schema           = "PUBLIC"
+    username         = "lucasudar"
+    warehouse        = "COMPUTE_WH"
+  }
+  name         = "Snowflake_with_ROW_DATA"
+  workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
+}
+
+resource "airbyte_connection" "postgres_to_snowflake" {
+  name           = "(STEP_3)_Postgres_to_Snowflake_with_ROW_DATA"
+  source_id      = airbyte_source_postgres.postgres.source_id
+  destination_id = airbyte_destination_snowflake.snowflake.destination_id
+  configurations = {
+    streams = [
+      {
+        name        = "csv_source"
+        sync_mode   = "full_refresh_overwrite"
+        primary_key = [["Customer_ID"]]
       }
     ]
   }
