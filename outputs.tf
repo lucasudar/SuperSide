@@ -17,8 +17,3 @@ output "s3_bucket_id" {
   description = "The ID of the S3 bucket"
   value       = module.s3_bucket.s3_bucket_id
 }
-
-output "airbyte_workspace_id" {
-  description = "The ID of the Airbyte workspace"
-  value       = airbyte_workspace.solution_team_workspace.workspace_id
-}

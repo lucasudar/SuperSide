@@ -32,6 +32,7 @@ locals {
   azs                  = slice(data.aws_availability_zones.available.names, 0, 3)
   dag_s3_path          = "dags"
   source_files_s3_path = "source_files"
+  dim_project_s3_path  = "dim_project"
   vpc_endpoints        = ["autoscaling", "ecr.api", "ecr.dkr", "ec2", "ec2messages", "elasticloadbalancing", "sts", "kms", "logs", "ssm", "ssmmessages"]
 
   tags = {

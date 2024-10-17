@@ -1,12 +1,13 @@
 superside:
   outputs:
     dev:
-      dbname: postgres
-      host: superside-postgres.ct8ig0syu1w0.us-west-2.rds.amazonaws.com
-      pass: postgres
-      port: 5432
-      schema: stg
+      account: czb09219.us-east-1
+      database: SUPERSIDE
+      password: hRjRTs^4!J7GE2!
+      role: ACCOUNTADMIN
+      schema: PUBLIC
       threads: 1
-      type: postgres
-      user: postgres
+      type: snowflake
+      user: lucasudar
+      warehouse: COMPUTE_WH
   target: dev
