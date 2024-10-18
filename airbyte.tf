@@ -278,7 +278,7 @@ resource "airbyte_destination_snowflake" "snowflake_for_dim" {
     database         = "superside"
     destination_type = "snowflake"
     host             = "czb09219.us-east-1.snowflakecomputing.com"
-    raw_data_schema  = "PUBLIC"
+    raw_data_schema  = "RAW_DATA"
     role             = "ACCOUNTADMIN"
     schema           = "PUBLIC"
     username         = "lucasudar"
