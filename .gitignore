@@ -123,3 +123,5 @@ terraform-visual-report/*
 # Blast Radius
 blast/*
 blast
+
+.DS_Store

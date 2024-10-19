@@ -252,14 +252,14 @@ resource "airbyte_source_s3" "s3_with_dim" {
         globs = [
           "${local.dim_project_s3_path}/*.csv",
         ]
-        name                                        = "DIM_PROJECT"
+        name                                        = "DIM_PROJECT_SOURCE"
         recent_n_files_to_read_for_schema_discovery = 1
         schemaless                                  = false
         validation_policy                           = "Emit Record"
       },
     ]
   }
-  name         = "S3_bucket_with_DIM_PROJECT"
+  name         = "S3_bucket_with_DIM_PROJECT_SOURCE"
   workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
 
   depends_on = [
@@ -278,24 +278,24 @@ resource "airbyte_destination_snowflake" "snowflake_for_dim" {
     database         = "superside"
     destination_type = "snowflake"
     host             = "czb09219.us-east-1.snowflakecomputing.com"
-    raw_data_schema  = "RAW_DATA"
+    raw_data_schema  = "RAW_DATA1"
     role             = "ACCOUNTADMIN"
     schema           = "PUBLIC"
     username         = "lucasudar"
     warehouse        = "COMPUTE_WH"
   }
-  name         = "Snowflake_with_DIM_PROJECT"
+  name         = "Snowflake_with_DIM_PROJECT_SOURCE"
   workspace_id = airbyte_workspace.solution_team_workspace.workspace_id
 }
 
 resource "airbyte_connection" "s3_to_snowflake" {
-  name           = "(STEP_1)_S3_to_Snowflake_with_DIM_PROJECT"
+  name           = "(STEP_1)_S3_to_Snowflake_with_DIM_PROJECT_SOURCE"
   source_id      = airbyte_source_s3.s3_with_dim.source_id
   destination_id = airbyte_destination_snowflake.snowflake_for_dim.destination_id
   configurations = {
     streams = [
       {
-        name        = "DIM_PROJECT"
+        name        = "DIM_PROJECT_SOURCE"
         sync_mode   = "full_refresh_overwrite"
         primary_key = [["ID"]]
       }
@@ -341,7 +341,7 @@ resource "airbyte_destination_snowflake" "snowflake" {
     database         = "superside"
     destination_type = "snowflake"
     host             = "czb09219.us-east-1.snowflakecomputing.com"
-    raw_data_schema  = "RAW_DATA"
+    raw_data_schema  = "RAW_DATA2"
     role             = "ACCOUNTADMIN"
     schema           = "PUBLIC"
     username         = "lucasudar"
