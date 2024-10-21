@@ -1,4 +1,5 @@
 ### start of the first uncomment task
+
 resource "kubernetes_namespace" "airbyte" {
   metadata {
     name = "airbyte"
@@ -22,9 +23,6 @@ resource "helm_release" "airbyte" {
     value = "LoadBalancer"
   }
 }
-### end of the first uncomment task
-
-### start of the second uncomment task
 
 data "kubernetes_service" "airbyte_webapp" {
   metadata {
@@ -71,10 +69,6 @@ output "airbyte_server_host" {
   value       = local.airbyte_server_host
   description = "The hostname or IP address of the Airbyte server"
 }
-
-### end of the second uncomment task
-
-### start of the third uncomment task
 
 resource "aws_iam_user" "airbyte_user" {
   name = "airbyte-s3-user"
@@ -151,6 +145,10 @@ resource "aws_security_group" "airbyte_public_sg" {
 
   tags = local.tags
 }
+
+### end of the first uncomment task
+
+### start of the second uncomment task
 
 provider "airbyte" {
   username   = "airbyte"
@@ -369,3 +367,5 @@ resource "airbyte_connection" "postgres_to_snowflake" {
   }
   status = "active"
 }
+
+### end of the second uncomment task
