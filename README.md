@@ -288,9 +288,6 @@ AWS Glue is a fully managed extract, transform, and load (ETL) service that make
 - [Pre-commit](https://pre-commit.com/)
 - [Linting SQL](https://docs.sqlfluff.com/en/stable/production/pre_commit.html)
 - [Formating SQL](https://docs.sqlfmt.com/integrations/pre-commit)
-
-![sqlfluff.png](img/sqlfluff.png)
-
 - Code review
 - Backups
 - Cost monitoring and budgeting
@@ -596,104 +593,61 @@ I’m using [**DBT Naming Conventions and Medallion Architecture**](https://i-sp
 
 Plan to create 3 levels:
 
-- Bronze (raw data)
+- Bronze (sources)
     - unchanged data from row with view materialization
     - add column `etl_timestamp` to track when I processed it. I will add for all layers
 - Silver (cleansed and conformed data)
     - cleansed and normalized data after some transformation
 - Gold (business-level aggregates)
-    - table materialization aggregated data
+    - table materialization and joined data from 2 normalized tables
 - Marts
-    - for analytics and ML purposes
+    - united table for analytics and ML purposes
 
-I noticed that in my table with customers that I get from source `customer_id` is not unique. What why I need to make a choice to add some unique column for data consistency. I have a choice between surrogate key or md5. I understand a difference - if some of columns is null my md5 function will return me back null. So I will stick to dbt_utils and surrogate key creation for my table. I have couple choices: 
+When I analyzed source customers table I found that I have 2 rows of duplicates by `customer_id, project_id, engagementid` columns
 
-- Snowflake-Labs/dbt_constraints
-- dbt_utils.unique_combination_of_columns
-- dbt_utils.generate_surrogate_key
-- md5 ( concat (column1, column2) ) **unsafe**
+![Screenshot 2024-10-20 at 9.21.31 PM.png](img/Screenshot_2024-10-20_at_9.21.31_PM.png)
 
-I tried to do that but, but realized that my table has duplicates
+I decided to check why and what is the difference? Only columns service and sub_service were different.
 
-```sql
-WITH duplicated_customers AS (
-    SELECT 
-        customer_id,
-        engagementid,
-        COUNT(*) AS count
-    FROM 
-        SUPERSIDE.PUBLIC.STG_CUSTOMERS
-    GROUP BY 
-        customer_id, 
-        engagementid
-    HAVING 
-        COUNT(*) > 1
-)
+![Screenshot 2024-10-20 at 9.24.58 PM.png](img/Screenshot_2024-10-20_at_9.24.58_PM.png)
 
-SELECT 
-    dc.customer_id,
-    dc.engagementid,
-    dc.count,
-    c.*
-FROM 
-    duplicated_customers dc
-JOIN 
-    SUPERSIDE.PUBLIC.STG_CUSTOMERS c ON 
-        dc.customer_id = c.customer_id AND 
-        dc.engagementid = c.engagementid
-ORDER BY 
-    dc.customer_id, 
-    dc.engagementid; 
+That means I don’t have duplicates and I can go forward with cleansing and normalizing data (avoid redundancy)
+
+I decided to create from customers 2 normalized tables:
+
+`tfm_customer_info` with columns:
+
+```jsx
+CUSTOMER_ID
+CUSTOMER_NAME
+CLIENT_REVENUE
+EMPLOYEE_COUNT
 ```
 
-![Screenshot 2024-10-18 at 9.18.45 PM.png](img/Screenshot_2024-10-18_at_9.18.45_PM.png)
+`tfm_customer_engagements` with columns:
 
-with difference only on `project_id`
+```jsx
+CUSTOMER_ID
+ENGAGEMENTID
+ENGAGEMENT_DATE
+ENGAGEMENT_TYPE
+ENGAGEMENT_REFERENCE
+```
 
-I used ROW_NUMBER() window function to assign a unique row number to each record, partitioned by the combination of key columns:
+My plan to unite tables with `tfm_projects` in Gold layer by `customer_id` to get pretty data in one table for the future aggregation and analysis.
 
-- customer_id
-- engagementid
-- engagement_date
-- project_id
+I need to make a choice to add some unique column for data consistency. I have a choice between surrogate key or md5. I understand a difference - if some of columns is null my md5 function will return me back null. So I will stick to dbt_utils and surrogate key creation for my table. I have couple choices: 
 
-After applying the row_number() function, I filtered out all duplicate records by selecting only rows where row_num = 1, which represents the latest record for each unique combination of the key columns.
-
-Additionally I generate surrogate key using `Snowflake-Labs/dbt_constraints`
-
-By that I effectively removed any duplicates, ensuring clean and reliable data in the final result
+```jsx
+Snowflake-Labs/dbt_constraints
+dbt_utils.unique_combination_of_columns
+dbt_utils.generate_surrogate_key
+md5 ( concat (column1, column2) ) **unsafe**
+```
 
 ### Data Deduplication Process Summary
 
-1. Initial Discovery:
-    - Identified duplicate records in the STG_CUSTOMERS table
-    - Found that duplicates were based on customer_id and engagementid
-2. Source Data Analysis:
-    - Examined the source table (CSV_SOURCE) for duplicates
-    - Discovered rows with duplicates in the source data
-3. Expanded Duplicate Check:
-    - Broadened the duplicate check to include engagement_date and project_id
-    - Found that considering these additional fields reduced the number of duplicates to match the source data
-4. Model Adjustment:
-    - Updated the STG_CUSTOMERS model to properly handle duplicates
-    - Implemented a deduplication strategy using ROW_NUMBER() function
-    - Partitioned data by customer_id, engagementid, engagement_date, and project_id
-    - Selected only one record from each group of potential duplicates
-5. Intermediate Table Check:
-    - Verified the dim_CUSTOMERS view for duplicates
-    - Confirmed that there were no duplicates in this table
-6. Process Validation:
-    - Compared the number of unique records in STG_CUSTOMERS with the total records in dim_CUSTOMERS
-    - Ensured that the deduplication process was working correctly across the data transformation stages
-7. Documentation and Monitoring:
-    - Documented the deduplication process and findings
-    - Established a plan for regular monitoring of data for potential duplicates
-8. Optimization Considerations:
-    - Considered moving the deduplication process to an earlier stage in the data pipeline for efficiency
-
-Through these steps, you successfully identified the source and nature of data duplication, implemented an effective deduplication strategy, and verified its success across your data transformation process
-
-Other steps for normalizing data in `dim_customers`:
+Other steps for normalizing data in `tfm_customers` table:
 
 1. reduction to a single form
     1. revenue
@@ -708,26 +662,7 @@ Other steps for normalizing data in `dim_customers`:
     1. employee_count
     2. engagement_date
 
-After that I created `fct_revenue_projects` table for gold layer with business-level aggregation logic by `customer_id`
-
-also I think it will be nice to have some views table in gold layer based on our fact table:
-
-- Revenue by projects for the last N months
-- Projects with delays in deadlines
-- Most profitable clients
-
-```sql
-select
-        customer_id,
-        customer_name,
-        sum(revenue_usd) as total_revenue,
-        count(project_id) as total_projects,
-        avg(project_max_estimate) as avg_project_estimate
-    from
-        gold.fct_revenue_projects
-    group by
-        customer_id, customer_name
-```
+After that I created `dw_customer_project` table for gold layer with business-level aggregation logic by `customer_id`. And also created `mrt_customer` and `mrt_project` with aggregated data, that I can use with Sigma BI.
 
 Now we can run our data transformation, let’s run our DBT container from AirFlow orchestrator
 
@@ -793,14 +728,12 @@ The primary goal of creating data marts is to streamline the reporting and analy
 
 I love to see “out of the box” and I created trial account on Sigma to show you some simple visualization of data
 
-![Screenshot 2024-10-20 at 1.16.56 PM.png](img/Screenshot_2024-10-20_at_1.16.56_PM.png)
-
 Credentials:
 
 ```jsx
 {
-	"email": "54o32@rustyload.com"
-	"password": "*q2WcBF.dqGBdRt"
+    "email": "54o32@rustyload.com"
+    "password": "*q2WcBF.dqGBdRt"
 }
 ```
 

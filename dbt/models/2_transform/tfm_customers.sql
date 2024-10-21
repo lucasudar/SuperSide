@@ -1,8 +1,18 @@
-{{ config(materialized="view", always_create_constraint=true) }}
-with stg_customers as (select * from {{ ref("stg_customers") }})
+{{ config(materialized="view") }}
+
+with customers as (select * from {{ ref("stg_customers") }})
 
 select
-    id,
+    {{
+        generate_surrogate_key(
+            [
+                "customer_id",
+                "engagementid",
+                "engagement_date",
+                "project_id",
+            ]
+        )
+    }} as id,
     service,
     project_id,
     sub_service,
@@ -119,5 +129,4 @@ select
     end as engagement_date,
     coalesce(nullif(engagement_reference, ''), 'unknown') as engagement_reference,
     current_timestamp() as etl_timestamp
-
-from stg_customers
+from customers

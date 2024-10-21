@@ -5,7 +5,7 @@ sources:
     schema: PUBLIC
     tables:
       - name: PROJECT
-        identifier: DIM_PROJECT
+        identifier: DIM_PROJECT_SOURCE
 
       - name: CUSTOMERS
         identifier: CSV_SOURCE
