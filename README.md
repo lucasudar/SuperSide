@@ -739,6 +739,8 @@ Credentials:
 
 I also created Snowflake COSTs dashboard to represent you that we can monitor some costs thought UI.
 
+![Screenshot 2024-10-21 at 3.09.31 AM.png](img/sigma.png)
+
 ![Screenshot 2024-10-19 at 8.27.23 AM.png](img/Screenshot_2024-10-19_at_8.27.23_AM.png)
 
 **TODO:** create procedure to make port forwarding while terraform script is running and working on AirByte connectors/sources/destinations/workspaces
