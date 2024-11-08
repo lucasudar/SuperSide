@@ -21,3 +21,6 @@ Thank you again for your time, patience, and interest in Superside. We wish you 
 Best regards,  
 David Ochoa  
 Talent Acquisition, Superside
+
+My AWS bill due testing my entire Terraform edition
+![AWS Bill](aws_bill.png)

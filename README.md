@@ -1,5 +1,8 @@
 # SuperSide Solution
 
+[Review from Superside after 18 days](review_from_superside.md)
+
+
 # Requirements
 
 ### Input data
